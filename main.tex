@@ -118,14 +118,14 @@ int main(int argc, char **argv) {
     }
     
     
-    MPI_Bcast(...); // Broadcasting to all processes
-    MPI_Barrier(...) // Wait for all processes
+    int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm); // Broadcasting to all processes
+    int MPI_Barrier(MPI_Comm comm); // Wait for all processes
     
     MPI_Scatter(void* send_data, int send_count, MPI_Datatype send_datatype, void* recv_data, int recv_count, MPI_Datatype recv_datatype, int root, MPI_Comm communicator); // rsendcount sollte reicvcount sein
     MPI_Gather(void* send_data, int send_count, MPI_Datatype send_datatype, void* recv_data, int recv_count, MPI_Datatype recv_datatype, int root, MPI_Comm communicator);
     
     
-    MPI_Reduce(...);
+    int MPI_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype,  MPI_Op op, int root, MPI_Comm comm);
     
     MPI_Finalize();
     
@@ -140,11 +140,14 @@ Achtung mit MPI_Send und MPI_Recv wegen Deadlocks.
 
 \section{Cuda}
 
-Grid - Block - Thread
+Grid - Block - Thread. Global memory. Shared shared memory.
 
 
-Global memory
-Shared shared memory 
+\begin{minted}{cpp}
+__global__ : executed on the device. callble from host and device
+__device__ : executed on the device. callable from host only
+__host__ :   executed on the host. callable from host only
+\end{minted}
 
 
 \begin{minted}{cpp}
@@ -153,9 +156,19 @@ void myKernelFn(void) {
     uint j = (blockIdx.y * blockDim.y) + threadIdx.y;
 }
 
+__global__
+void add_grpu(int n, float* x, flaot* y) {
+    uint index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    uint stride = blockDim.x * gridDim.x;
+    
+    for(int i = index; i < n; i += stride {
+        y[i] = x[i] + y[i];
+    }
+}
+
 int main(int argc, char **argv) {    
 
-    myKernelFn <<<numBlocks,threadsPerBlock>>>( /* params for the kernel function */ );       
+    myKernelFn <<<numBlocks,threadsPerBlock>>>( /* params for the kernel function */ );       //<<grid,block>>//
 
 
     malloc();
@@ -163,22 +176,233 @@ int main(int argc, char **argv) {
     memset();
     free();
 
-    cudaMalloc();
-    cudaMemcpy();
-    cudaMemset();
-    cudaFree();
+    __host__  __device__ cudaError_t cudaMalloc ( void** devPtr, size_t size ); //     Allocate memory on the device. 
+    __host__ cudaError_t cudaMemcpy ( void* dst, const void* src, size_t count, cudaMemcpyKind kind ); // Copies data between host and device. 
+        Copies data to the given symbol on the device. 
+    __host__ cudaError_t cudaMemset ( void* devPtr, int  value, size_t count ); // Initializes or sets device memory to a value. 
+    __host__  __device__ cudaError_t cudaFree ( void* devPtr ); // Frees memory on the device. 
+    
+    cudaDeviceSyncronize();
 }
 \end{minted}
 
 \section{OpenCL}
 
+\begin{itemize}
+    \item command-queue
+    \item kernel
+    \item work-item
+    \item work-group (jede gruppe teilt shared memory)
+    \item gesamt menge an work items  = global work size
+    \item global memory von allen work items und work groups geteilt
+    \item host memory
+    \item global memory (kernel speicher, jede instanz eines kernels hat wahlfreien zugriff auf gesammten bereich)
+    \item constant memory: kann von kerneln nur gelesen werden
+    \item local memory: gruppen  teilen sich diesen speicher
+    \item private memory: speicher nur für kernel instanz 
+    \item unterschied cuda / opencl: cuda: nvidia compiler wandelt in parallelcode um ; anzahl von blöce und größe pro block; openCL: gesamtanzahl threads ( global size ) und anzahl thrads pro gruppe (local size) 
+\end{itemize}
+
+\begin{minted}{cpp}
+#ifdef __APPLE
+    #include <OpenCL/opencl.h>
+#else
+    #include <CL/cl.h>
+#endif
+
+__kernel void VectorAdd(__global const float* a, __global const float * b, __global float* c, int iNumElements) {
+    int iGID = get_global_id(0);
+    c[iGID] = a[iGID] + b[iGID];
+}    
+
+int main(){
+    cl_int_ret;
+    cl_uint ret_num_platforms;
+    cl_platform_id platform_id
+    cl_uint ret_num_devices;
+    cl_device_id device_id;
+    
+    // PseudoCode
+    
+    clGetPlatformIDs(...);
+    clGetDeviceIDs(...);
+    
+    clCreateContext(...);
+    clCreateCommandQueue(...);
+    
+    program = clCreateProgramWithSource(context, 1,  sourceString);
+    clBuildProgram(...);
+    
+    kernel = clCreateKernel(progra, "VectorAdd", %ret);
+    
+    srcA = (void*) malloc(sizeof(cl_float) * 1024);
+    srcB = malloc(...);
+    dest = malloc(...);
+    
+    // Geräte puffer erstellen
+    
+    cmDevSrcA = clCreateBuffer(...);
+    cmDevSrcB = clCreateBuffer(...);
+    cmDevDest = clCreateBuffer(...);
+    
+     clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*) &cmDevSrcA);
+     clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*) &cmDevSrcB);
+     clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*) &cmDevDst);
+     clSetKernelArg(kernel, 3, sizeof(cl_int), (void*) &numElements);
+     
+     // In speicher schreiben
+     clEnqueueWriteBuffer(command_queue, cmDevSrcA, ....);
+     clEnqueueWriteBuffer(command_queue, cmDevSrcB, ....);
+     
+     clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &szGlobalWorkSize, & szLocalWorkSize, 0, NULL, NULL);
+     
+     // Ergebnis von speicher lesen
+     clEnqueueReadBuffer(command_queue, cmDevDst, CL_TRUE, 0, sizeof(cl_float) * szGlobalWorkSize, dst, 0, NULL, NULL);
+     
+     free(srcA);
+     free(srcB);
+     free(dst);
+     
+     clRealseMemObject(cmDevSrcA);
+     clRealseMemObject(cmDevSrcB);
+     clRealseMemObject(cmDevDst);
+     
+     clReleaseProgram(...);
+     clReleaseKernel(...);
+     clReleaseCommandQueue(...);
+     clReleaseContext(...);
+}
+\end{minted}
+
+Rest siehe folien!!
+
 \section{Hadoop}
+
+CAP - Theorem: Consitency, Availability, Partition tolerance
+
+Map-Shuffle-Reduce
+\begin{itemize}
+    \item Map (Item => key: vlaue): Von jeder Map-Instanz fließen Daten in eventuell verschiedene Zwischenergebnisspeicher.
+    \item Shuffle (): Die Zwischenergebnisse werden gemäß der Ausgabeschlüssel, die von der Map-Funktion produziert wurden, neu verteilt, sodass alle
+Zwischenergebnisse mit demselben Schlüssel im nächsten Schritt auf demselben Computersystem verarbeitet werden. 
+    \item Reduce (): Für jeden Satz an Zwischenergebnissen berechnet jeweils genau ein Reduce-Prozess die vom Nutzer bereitgestellte Reduce-Funktion und damit die Ausgabedaten. Die Reduce-Prozesse ausgeführt.
+\end{itemize}
+
+\begin{itemize}
+    \item Dateisystem - HDFS (Hadoop Distributed File System)
+    \item Resource Manager - YARN (Yet Another Resource Negotiator)
+    \item Job- und TaskTracker - MapReduce
+    \item HBase: Skalierbare Datenbank auf Hadoop-Clsuter
+    \item Hive: Date-Warehouse-Funtionalitäten
+    \item Spark: Eine Nachteil von Hadoop ist daß die Daten während die
+Berechnungen (bzw. Reduce und Shuffle) immer in Datei (Files) auf
+Datenspeicher (HDFS) geschrieben und gelesen sind.
+Spark ist eine in-memory Batch Processing Engine, welche
+vornehmlich für Machine-Learning-Anwendungen entwickelt wurde.
+Das heißt, die Meisten von den Berechnungen finden
+Arbeitspeicher statt, ohne immer auf Festspeicher zu schreiben.
+\end{itemize}
 
 \section{Spark}
 
+Typische Anwendungsszenarien sind interaktive Datenabfragen aus verteilten Datenbeständen und Verarbeitung von fließenden Daten (Streaming) von Sensoren oder aus dem Finanzbereich. Die besondere Stärke von Spark ist jedoch das maschinelle Lernen
+(Machine Learning) mit den Zusätzen MLib (Machine Learning Bibliothek) oder SparkR (R-Bibliotheken direkt unter Spark verwenden).
+
+\begin{itemize}
+    \item RDD
+    \item MLib
+\end{itemize}
+
 \section{NP-Probleme}
 
+\subsection{P: in polynomialer Zeit lösbar}
+
+Eine Sprache oder ein Problem L ist in P, wenn ein Algorithmus oder deterministische Turingmaschine A und ein Polynom p existiert, so dass A bei einer Eingabe der Länge n nach p(n) Schritten spätestens anhält und dann korrekt akzeptiert oder ablehnt.
+
+\begin{itemize}
+    \item binäre Suche mit $ O(log n) $
+    \item Sorieralgorithmen $ O(n log n) $
+    \item Verbinde jeden Knoten mit jedem Knoten eines Graphen verbinde jeden Knoten mit jedem Knoten eines Graphen mit $ O(n^2) $
+    \item Matrizenmultiplikation zweier n x n Matrizen mit $ O(n^3) $
+\end{itemize}
+
+\subsection{NP: nichtdeterministische polynomiale}
+
+Klasse NP ist die Menge alle Probleme, die ein nichtdeterministischer
+Algorithmus oder nichtdeterministische Turingmaschine mit
+polynomialer Komplexität lösen kann. \\
+
+Ein Problem ist nicht praktikabel lösbar, wenn es nicht mit den
+vorhandenen Ressourcen lösbar ist.
+Diese Probleme gehören zur Klasse NP (nicht in polynomialer Zeit
+lösbar), z.B.:
+
+
+
+\begin{itemize}
+    \item Erzeuge alle Binärcodes der Länge $ n $ mit $ O(2^n) $
+    \item Traveling Salesman mit $ O(n!) $
+    \item Rucksackproblem
+    \item Vertex Cover
+    \item Damenproblem: Es sollen jeweils acht Damen auf einem Schachbrett so aufgestellt
+werden, dass keine zwei Damen einander gemäß ihren in den
+Schachregeln definierten Zugmöglichkeiten schlagen können.
+    \item Mengenüberdeckungsproblem
+Es fragt, ob zu einer Menge U und n Teilmengen S j von U und einer
+natürlichen Zahl k kleiner als n eine Vereinigung von k oder weniger
+Teilmengen S j existiert, die der Menge U entspricht (Überdeckung).
+    \item Ein Problem ist NP-Vollständig (NP-Complete), wenn es zu den
+schwierigsten Problemen in der Klasse NP gehört, also sowohl in NP
+liegt als auch NP-schwer ist.
+    \item NP-Vollständige Probleme sind Entscheidungsprobleme (mit der
+Lösung “Ja” oder “Nein”).
+\end{itemize}
+
+
+\subsection{Mögliche Lösungen von NP}
+
+\begin{itemize}
+    \item Brute-force
+    \item backtracking (trail and error)
+    \item branch and bound
+    \item greedy algorithm
+    \item hill-climbinga or gradient descent
+    \item genetic algorithms
+    \item simulated annealing
+    \item swarm intelligenz
+\end{itemize}
+
+
 \section{Beweisverfahren}
+
+Ein Algorithmus ist eine:
+
+\begin{itemize}
+    \item vollständige und eindeutige Verfahrensvorschrift zur Lösung einer bestimmten Klasse von gleichartigen Problemen.
+    \item wohldefinierte Rechenvorschrift, die eine Menge von Elementen als Eingabe verwendet und eine Menge von Elementen als Ausgabe erzeugt
+    \item beschreibt eine Rechenvorschrift zum Erhalt einer durch die Formulierung eines Problems gegebenen Eingabe-Ausgabe-Beziehung
+\end{itemize}
+
+Eigenschaften von Algorithmen
+
+\begin{itemize}
+    \item Eingangswerte und Ausgangswerte
+    \item Determiniertheit
+    \item Effektivivtät
+    \item Endlichkeit: Statisch, Dynamisch
+    \item Korrektheit
+\end{itemize}
+
+Kompliziertheit im ungünstigsten, günstigstens und allegemeinen (mittleren Fall)
+
+
+\begin{itemize}
+    \item Indirekter Beweis
+    \item Direkter Beweis
+    \item Beweis durch Widerspruch
+\end{itemize}
+
+
 
 \subsection{Vollständige Induktion}
 
