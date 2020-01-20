@@ -4,6 +4,24 @@
 \usepackage{amsmath}
 \usepackage{geometry}
 \usepackage{float}
+\usepackage{multicol}
+
+
+
+\geometry{
+    paper=a4paper,
+    top=10mm,
+    bottom=10mm,
+    left=5mm,
+    right=5mm
+}
+
+\setminted{
+    frame=lines,
+    framesep=2mm,
+    fontsize=\footnotesize,
+    breaklines
+}
 
 \newcommand{\eqname}[1]{\tag*{#1}}% Tag equation with name
 
@@ -13,6 +31,9 @@
 \date{January 2020}
 
 \begin{document}
+\begin{multicols}{2}
+    
+
 
 \section{OpenMP}
 
@@ -119,6 +140,36 @@ Achtung mit MPI_Send und MPI_Recv wegen Deadlocks.
 
 \section{Cuda}
 
+Grid - Block - Thread
+
+
+Global memory
+Shared shared memory 
+
+
+\begin{minted}{cpp}
+void myKernelFn(void) {
+    uint i = (blockIdx.x * blockDim.x) + threadIdx.x;
+    uint j = (blockIdx.y * blockDim.y) + threadIdx.y;
+}
+
+int main(int argc, char **argv) {    
+
+    myKernelFn <<<numBlocks,threadsPerBlock>>>( /* params for the kernel function */ );       
+
+
+    malloc();
+    memcpy();
+    memset();
+    free();
+
+    cudaMalloc();
+    cudaMemcpy();
+    cudaMemset();
+    cudaFree();
+}
+\end{minted}
+
 \section{OpenCL}
 
 \section{Hadoop}
@@ -159,49 +210,19 @@ Achtung mit MPI_Send und MPI_Recv wegen Deadlocks.
 \noindent \textbf{Induktionschritt:}
 
 \begin{align*}
-    \sum_{k=1}^{n + 1}k  = \sum_{k=1}^{n}k + (n + 1) = \frac{(n + 1) * n}{2} +  (n + 1) = \frac{(n + 1) * n + 2(n + 1)}{2} = \frac{n^2 + n + 2n + 2}{2} = \frac{n^2 + 3n + 2}{2}
+    \sum_{k=1}^{n + 1}k  = \sum_{k=1}^{n}k + (n + 1) = \frac{(n + 1) * n}{2} +  (n + 1) = \\
+    \frac{(n + 1) * n + 2(n + 1)}{2} = \\
+    \frac{n^2 + n + 2n + 2}{2} = \\
+    \frac{n^2 + 3n + 2}{2}
 \end{align*}
 \hrule
 \begin{align*}
-    \frac{((n + 1) + 1) * (n + 1)}{2} = \frac{(n + 2) * (n + 1)}{2} = \frac{n^2 + n +2n + 2}{2} = \frac{n^2 + 3n + 2}{2}
-\end{align*}
-
-\subsubsection{Aufgabe 2}
-
-
-\noindent Zuerst die Aufgabenstellung niederschreiben
-\begin{align*}
-    \sum_{k=1}^{n} (2k - 1)^{2}  = \frac{n(2n - 1)(2n + 1)}{3}
-\end{align*}
-
-\noindent \textbf{Induktionsanfang:} Beweisen das Aussage für $ n  = 1 $ wahr ist:
-\begin{align*}
-    \sum_{k=1}^{n} (2k - 1)^{2}  = \sum_{k=1}^{1} (2k - 1)^{2} =  (2 * 1 - 1)^{2} =  1
-\end{align*}
-
-\noindent Rechte Seite ausrechnen:
-\begin{align*}
-    \frac{n(2n - 1)(2n + 1)}{3} =     \frac{1 * (2 * 1 - 1)(2 * 1 + 1)}{3} = \frac{1 * 1 * 3}{3} = \frac{3}{3} =  1 
+    \frac{((n + 1) + 1) * (n + 1)}{2} = \\
+    \frac{(n + 2) * (n + 1)}{2} = \\
+    \frac{n^2 + n +2n + 2}{2} = \\
+    \frac{n^2 + 3n + 2}{2}
 \end{align*}
 
 
-
-\noindent \textbf{Induktionsbehauptung:} Behaupten das Aussage für $ n =  n + 1 $ wahr ist:
-\begin{align*}
-    \sum_{k=1}^{n + 1} (2k - 1)^{2}  = \frac{(n + 1)(2 (n + 1) - 1)(2(n + 1) + 1)}{3}
-\end{align*}
-
-
-\noindent \textbf{Induktionsschritt:}
-\begin{align*}
-    \sum_{k=1}^{n + 1} (2k - 1)^{2} =  \sum_{k=1}^{n} (2k - 1)^{2} + (2(n + 1) - 1)^{2} = \frac{n(2n - 1)(2n + 1)}{3} + (2 * (n + 1) - 1)^2 = \\
-     \frac{n(2n - 1)(2n + 1)}{3} + \frac{3((2 * (n + 1) - 1)^2)}{3} = \frac{n(2n - 1)(2n + 1)+ 3((2 * (n + 1) - 1)^2)}{3} 
-\end{align*}
-
-\hrule
-
-\begin{align*}
-\end{align*}
-
-
+\end{multicols}
 \end{document}
